@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        h2,
+        p {
+            text-align: center;
+            color: #333;
+        }
+
+        pre {
+            background: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 20px auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            word-wrap: break-word;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        td {
+            background-color: #fff;
+        }
+
+        caption {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Configuration Generator</h1>
+    <form id="configForm">
+        <label for="ipAddr">VM IP (CIDR format, e.g. 192.168.1.10/24):</label>
+        <input type="text" id="ipAddr" name="ipAddr" required>
+
+        <label for="gatewayAddr">Gateway Address:</label>
+        <input type="text" id="gatewayAddr" name="gatewayAddr" required>
+
+        <label for="ntpAddrs">NTP Servers (comma separated, e.g. 8.8.8.8,8.8.4.4):</label>
+        <input type="text" id="ntpAddrs" name="ntpAddrs" required>
+
+        <label for="nameserversAddrs">DNS Servers (comma separated, e.g. 8.8.8.8,8.8.4.4):</label>
+        <input type="text" id="nameserversAddrs" name="nameserversAddrs" required>
+
+        <label for="dnsSearch">DNS Search Domains (comma separated, e.g. example.com,colortokens.local):</label>
+        <input type="text" id="dnsSearch" name="dnsSearch" required>
+
+        <button type="button" onclick="generateOutput()">Generate Output</button>
+    </form>
+
+    <table>
+        <caption>VM Advanced Configuration Parameters</caption>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody id="encodingResults">
+            <!-- Results will be inserted here by JavaScript -->
+        </tbody>
+    </table>
+
+    <p>cloud-init metdata and userdata</p>
+    <pre id="results"></pre>
+
+    <script>
+        function isValidIP(ip) {
+            const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            return ipPattern.test(ip);
+        }
+
+        function isValidCIDR(cidr) {
+            const cidrPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[0-2]|[1-2][0-9]|[0-9])$/;
+            return cidrPattern.test(cidr);
+        }
+
+        function validateInputs() {
+            const ipAddr = document.getElementById("ipAddr").value;
+            const gatewayAddr = document.getElementById("gatewayAddr").value;
+            const ntpAddrs = document.getElementById("ntpAddrs").value.split(",");
+            const nameserversAddrs = document.getElementById("nameserversAddrs").value.split(",");
+            const dnsSearch = document.getElementById("dnsSearch").value.split(",");
+
+            if (!isValidCIDR(ipAddr)) {
+                alert("Invalid VM IP format. Please enter a valid CIDR.");
+                return false;
+            }
+
+            if (!isValidIP(gatewayAddr)) {
+                alert("Invalid Gateway Address format.");
+                return false;
+            }
+
+            for (const addr of ntpAddrs) {
+                if (!isValidIP(addr.trim())) {
+                    alert("Invalid NTP server IP format.");
+                    return false;
+                }
+            }
+
+            for (const addr of nameserversAddrs) {
+                if (!isValidIP(addr.trim())) {
+                    alert("Invalid DNS server IP format.");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function generateOutput() {
+            if (!validateInputs()) return;
+
+            const ipAddr = document.getElementById("ipAddr").value;
+            const gatewayAddr = document.getElementById("gatewayAddr").value;
+            const ntpAddrs = document.getElementById("ntpAddrs").value.split(",").map(addr => addr.trim());
+            const nameserversAddrs = document.getElementById("nameserversAddrs").value.split(",").map(addr => addr.trim());
+            const dnsSearch = document.getElementById("dnsSearch").value.split(",").map(domain => domain.trim());
+
+            const metadata = {
+                "network": {
+                    "version": 2,
+                    "ethernets": {
+                        "ens160": {
+                            "dhcp6": false,
+                            "dhcp4": false,
+                            "addresses": [ipAddr],
+                            "gateway4": gatewayAddr,
+                            "nameservers": {
+                                "addresses": nameserversAddrs,
+                                "search": dnsSearch
+                            }
+                        }
+                    }
+                }
+            };
+
+            const userdata = {
+                "timezone": "UTC",
+                "ntp": {
+                    "enabled": true,
+                    "servers": ntpAddrs
+                }
+            };
+
+            const jsonStringMetadata = JSON.stringify(metadata);
+            const jsonStringUserdata = JSON.stringify(userdata);
+
+            const base64EncodedMetadata = btoa(unescape(encodeURIComponent(jsonStringMetadata)));
+            const base64EncodedUserdata = btoa(unescape(encodeURIComponent(jsonStringUserdata)));
+
+            const result = `
+metadata:
+
+${JSON.stringify(metadata, null, 2)}
+
+--------------------------------------------------------------------------------
+
+userdata:
+
+${JSON.stringify(userdata, null, 2)}
+            `;
+
+            document.getElementById("results").textContent = result;
+
+            // Populate the table
+            const tableBody = document.getElementById("encodingResults");
+            tableBody.innerHTML = `
+                <tr>
+                    <td>guestinfo.metadata</td>
+                    <td>${base64EncodedMetadata}</td>
+                </tr>
+                <tr>
+                    <td>guestinfo.metadata.encoding</td>
+                    <td>base64</td>
+                </tr>
+                <tr>
+                    <td>guestinfo.userdata</td>
+                    <td>${base64EncodedUserdata}</td>
+                </tr>
+                <tr>
+                    <td>guestinfo.userdata.encoding</td>
+                    <td>base64</td>
+                </tr>
+            `;
+        }
+    </script>
+</body>
+
+</html>
